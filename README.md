@@ -9,4 +9,7 @@ This code was built using Python 3.7, and requires the following packages:
  * Matplotlib
  * OpenCV
  * imutils (tentative)
- * apriltags
+ * pupil-apriltags (https://pypi.org/project/pupil-apriltags/)
+
+You'll also need to generate AprilTags, which is in general kinda difficult. Thanks to 
+https://github.com/AprilRobotics/apriltag-imgs for generating a wide swath of popular AprilTags!
