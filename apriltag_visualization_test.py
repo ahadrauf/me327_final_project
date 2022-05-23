@@ -21,8 +21,28 @@ def detect_ar_tag(img, apriltag_detector, estimate_tag_pose=False, camera_params
     return tags
 
 
+def hermite_interpolation(t, p0, p1, m0, m1):
+    """
+    Cubic hermite interpolation
+    https://en.wikipedia.org/wiki/Cubic_Hermite_spline
+    :param t: Time [0, 1]
+    :param p0: Initial position (t = 0)
+    :param p1: Final position (t = 1)
+    :param m0: Initial tangent (t = 0)
+    :param m1: Final tangent (t = 1)
+    :return: Point at time t
+    """
+    t2 = t*t
+    t3 = t*t*t
+    h00 = 2*t3 - 3*t2 + 1
+    h10 = t3 - 2*t2 + t
+    h01 = -2*t3 + 3*t2
+    h11 = t3 - t2
+    return h00*p0 + h10*m0 + h01*p1 + h11*m1
+
+
 def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_toolkits.mplot3d.art3d.Line3D,
-              pos: np.ndarray, R: np.ndarray, N: int = 10):
+              pos: np.ndarray, R: np.ndarray, N: int = 10, change_perspective: bool = False):
     """
     Generates a 3D visualization for the arm
 
@@ -35,17 +55,29 @@ def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_t
     :param N: Number of points used to describe the ring
     :return: None
     """
+    # swap = np.array([[0, 0, 1],
+    #                  [0, 1, 0],
+    #                  [-1, 0, 0]])
+    swap = np.array([[0, 0, 1],
+                     [-1, 0, 0],
+                     [0, -1, 0]])
+
     # update ring points
     ring_r_avg = (ring_r_outer + ring_r_inner)/2
     pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
     pts = np.reshape(pts, (N, 3))
     pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
+    if change_perspective:
+        pts = np.transpose(np.matmul(swap, np.transpose(pts)))
     ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    print(np.mean(pts, axis=0))
 
     # update handle
-    pts = [(0, -ring_r_inner, 0), (0, -ring_r_outer - handle_length, 0)]
+    pts = [(ring_r_inner, 0, 0), (ring_r_outer + handle_length, 0, 0)]
     pts = np.reshape(pts, (2, 3))
     pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
+    if change_perspective:
+        pts = np.transpose(np.matmul(swap, np.transpose(pts)))
     handle.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
 
     return ring, handle
@@ -54,8 +86,8 @@ def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_t
 if __name__ == "__main__":
     # define a video capture object
     vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    # width, height = 640*1, 480*1  # 640x480 = default width of camera, up to 1920x1080
-    width, height = 640*1, 360*1  # 640x480 = default width of camera, up to 1920x1080
+    width, height = 1920, 1080  # 640x480 = default width of camera, up to 1920x1080
+    # width, height = 640*1, 360*1  # 640x480 = default width of camera, up to 1920x1080
     # if width != 640:
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -69,8 +101,9 @@ if __name__ == "__main__":
                                                  decode_sharpening=0.25,
                                                  debug=0)
     estimate_tag_pose = True
-    camera_params = [np.deg2rad(46.4*2), np.deg2rad(29.1*2), 0., 0.]  # [fx, fy, cx, cy]
-    tag_size = 2*INCH_TO_METERS
+    # camera_params = [np.deg2rad(46.4*2), np.deg2rad(29.1*2), 0., 0.]  # [fx, fy, cx, cy]
+    camera_params = [958.9126, 956.1364, 957.4814, 557.8223]  # from matlab calibration
+    tag_size = 3*INCH_TO_METERS
 
     # define AR tag tracking variables
     # camera matrix for E-Meet (https://smile.amazon.com/gp/product/B08DXSG5QR/)
@@ -79,10 +112,24 @@ if __name__ == "__main__":
     # print("K", K)
     # ref_img = cv2.imread("./images/ar_tag_1_v2.jpg", cv2.IMREAD_GRAYSCALE)
 
+    control_pts = 0.1*np.array([[2, 0, 0], [4, 0, 1], [6, 0, 0], [8, 0, 1], [10, 0, 0.5], [12, 0, 0], [14, 0, 0]])
+    tangents = 0.2*np.array([[1, 0, 0]]*len(control_pts))  # every tangent = in x-direction
+
+    # Compute spline curve
+    num_points_per_spline = 20
+    curve = []
+    for i in range(len(control_pts) - 1):
+        for t in np.linspace(0, 1, num_points_per_spline, endpoint=False):
+            curve += [hermite_interpolation(t, np.array(control_pts[i]), np.array(control_pts[i + 1]),
+                                            np.array(tangents[i]), np.array(tangents[i + 1]))]
+    curve += [np.array(control_pts[-1])]
+    curve = np.array(curve)
+
     # define helper variables
     print_every = 50
     start_time = datetime.now()
     num_loops = 0
+    lastTime = datetime.now()
     fps_average_interval = 100  # should be > print_every
     BLUE = (255, 0, 0)
     GREEN = (0, 255, 0)
@@ -95,18 +142,19 @@ if __name__ == "__main__":
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
     ax.set_zlabel("z (m)")
+    ax.set_xlim(0, 1.5)
+    ax.set_ylim(-0.2, 0.2)
+    ax.set_zlim(-0.2, 0.2)
+    spline, = plt.plot(curve[:, 0], curve[:, 1], curve[:, 2])
     ring, = plt.plot([], [])  # , lw=(ring_r_outer-ring_r_inner)/2)
     handle, = plt.plot([], [])
 
     while True:
         ret, frame = vid.read()  # Capture the video frame by frame
-        print(np.shape(frame))
         greyscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         tags = detect_ar_tag(greyscale, apriltag_detector, estimate_tag_pose, camera_params, tag_size)
-        print(len(tags))
 
         for tag in tags:
-            print(np.ndarray.flatten(tag.pose_t))  # , np.ndarray.flatten(tag.pose_R), tag.pose_err)
             corners = np.array(tag.corners).astype("int")
             for corner in corners:
                 frame = cv2.circle(frame, corner, 10, BLUE)
@@ -138,10 +186,11 @@ if __name__ == "__main__":
         #     frame = cv2.resize(frame, None, fx=0.5, fy=0.5)
         #     cv2.imshow('Camera Feed', frame)
 
-        cv2.imshow('Camera Feed', frame)
+        cv2.imshow('Camera Feed', cv2.resize(frame, (640, 360)))
 
         if len(tags) > 0:
-            ring, handle = draw_wand(ax, ring, handle, tags[0].pose_t, tags[0].pose_R)
+            ring, handle = draw_wand(ax, ring, handle, tags[0].pose_t, tags[0].pose_R, change_perspective=True)
+            # print(tags[0].pose_t)
         plt.draw()
         plt.pause(0.01)
 
@@ -149,6 +198,11 @@ if __name__ == "__main__":
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
         num_loops += 1
+
+        if num_loops == print_every:
+            print("Avg. FPS:", print_every/(datetime.now() - lastTime).total_seconds())
+            lastTime = datetime.now()
+            num_loops = 0
 
     vid.release()
     cv2.destroyAllWindows()
