@@ -86,11 +86,12 @@ def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_t
 if __name__ == "__main__":
     # define a video capture object
     vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    width, height = 1920, 1080  # 640x480 = default width of camera, up to 1920x1080
+    # width, height = 1920, 1080  # 640x480 = default width of camera, up to 1920x1080
     # width, height = 640*1, 360*1  # 640x480 = default width of camera, up to 1920x1080
+    width, height = 640, 480
     # if width != 640:
-    vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    # vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    # vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
     # AprilTag settings
     apriltag_detector = pupil_apriltags.Detector(families="tag36h11",
@@ -102,7 +103,8 @@ if __name__ == "__main__":
                                                  debug=0)
     estimate_tag_pose = True
     # camera_params = [np.deg2rad(46.4*2), np.deg2rad(29.1*2), 0., 0.]  # [fx, fy, cx, cy]
-    camera_params = [958.9126, 956.1364, 957.4814, 557.8223]  # from matlab calibration
+    # camera_params = [958.9126, 956.1364, 957.4814, 557.8223]  # from matlab calibration, 1920x1080
+    camera_params = [443.8266, 443.4999, 320.3827, 247.3580]  # from matlab calibration, 640x480
     tag_size = 3*INCH_TO_METERS
 
     # define AR tag tracking variables
@@ -186,7 +188,8 @@ if __name__ == "__main__":
         #     frame = cv2.resize(frame, None, fx=0.5, fy=0.5)
         #     cv2.imshow('Camera Feed', frame)
 
-        cv2.imshow('Camera Feed', cv2.resize(frame, (640, 360)))
+        # cv2.imshow('Camera Feed', cv2.resize(frame, (640, 360)))
+        cv2.imshow('Camera Feed', frame)
 
         if len(tags) > 0:
             ring, handle = draw_wand(ax, ring, handle, tags[0].pose_t, tags[0].pose_R, change_perspective=True)
