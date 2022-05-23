@@ -13,3 +13,9 @@ This code was built using Python 3.7, and requires the following packages:
 
 You'll also need to generate AprilTags, which is in general kinda difficult. Thanks to 
 https://github.com/AprilRobotics/apriltag-imgs for generating a wide swath of popular AprilTags!
+
+Finally, you'll need to estimate your [camera intrinsic parameters](https://en.wikipedia.org/wiki/Camera_resectioning) 
+in order to obtain decent measurements for position and rotation. The easiest script I found online to do this was 
+[this one in Matlab](https://www.mathworks.com/help/vision/ug/camera-calibration-using-apriltag-markers.html), which
+requires the Computer Vision toolbox and which can be opened via the command
+``openExample('vision/CalibrateCameraUsingAprilTagBasedPatternExample')``

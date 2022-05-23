@@ -3,14 +3,52 @@ import matplotlib.pyplot as plt
 import cv2
 import pupil_apriltags
 from datetime import datetime
+import mpl_toolkits.mplot3d.art3d
+from mpl_toolkits.mplot3d import Axes3D
 
 INCH_TO_METERS = 0.0254
+
+thickness = 0.02*2  # thickness of wand
+ring_r_inner = 0.075/2  # inner radius of the ring (m)
+ring_r_outer = 0.045  # outer radius of the ring (m)
+handle_length = 0.130  # handle length
+handle_width = 0.03  # handle width
 
 
 def detect_ar_tag(img, apriltag_detector, estimate_tag_pose=False, camera_params=None, tag_size=None):
     tags = apriltag_detector.detect(img, estimate_tag_pose=estimate_tag_pose, camera_params=camera_params,
                                     tag_size=tag_size)
     return tags
+
+
+def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_toolkits.mplot3d.art3d.Line3D,
+              pos: np.ndarray, R: np.ndarray, N: int = 10):
+    """
+    Generates a 3D visualization for the arm
+
+    Tutorial for drawing cylinders: https://stackoverflow.com/questions/32317247/how-to-draw-a-cylinder-using-matplotlib-along-length-of-point-x1-y1-and-x2-y2
+    :param ax: Matplotlib axes on which to plot the wand
+    :param ring: 3D line used to draw the ring
+    :param handle: 3D line used to draw the handle
+    :param pos: Position of the center of the ring
+    :param R: Rotation matrix of the center of the ring
+    :param N: Number of points used to describe the ring
+    :return: None
+    """
+    # update ring points
+    ring_r_avg = (ring_r_outer + ring_r_inner)/2
+    pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
+    pts = np.reshape(pts, (N, 3))
+    pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
+    ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+
+    # update handle
+    pts = [(0, -ring_r_inner, 0), (0, -ring_r_outer - handle_length, 0)]
+    pts = np.reshape(pts, (2, 3))
+    pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
+    handle.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+
+    return ring, handle
 
 
 if __name__ == "__main__":
@@ -49,6 +87,16 @@ if __name__ == "__main__":
     BLUE = (255, 0, 0)
     GREEN = (0, 255, 0)
     RED = (0, 0, 255)
+
+    # Setup plot
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.grid(False)
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.set_zlabel("z (m)")
+    ring, = plt.plot([], [])  # , lw=(ring_r_outer-ring_r_inner)/2)
+    handle, = plt.plot([], [])
 
     while True:
         ret, frame = vid.read()  # Capture the video frame by frame
@@ -91,6 +139,11 @@ if __name__ == "__main__":
         #     cv2.imshow('Camera Feed', frame)
 
         cv2.imshow('Camera Feed', frame)
+
+        if len(tags) > 0:
+            ring, handle = draw_wand(ax, ring, handle, tags[0].pose_t, tags[0].pose_R)
+        plt.draw()
+        plt.pause(0.01)
 
         # the 'q' button is set as the quitting button
         if cv2.waitKey(1) & 0xFF == ord('q'):
