@@ -2,6 +2,7 @@ import mpl_toolkits.mplot3d.art3d
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 thickness = 0.02*2  # thickness of wand
 ring_r_inner = 0.075/2  # inner radius of the ring (m)
@@ -30,7 +31,7 @@ def hermite_interpolation(t, p0, p1, m0, m1):
     return h00*p0 + h10*m0 + h01*p1 + h11*m1
 
 
-def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_toolkits.mplot3d.art3d.Line3D,
+def draw_wand(ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.art3d.Line3D,
               pos: np.ndarray, R: np.ndarray, N: int = 10):
     """
     Generates a 3D visualization for the arm
@@ -49,7 +50,12 @@ def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_t
     pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
     pts = np.reshape(pts, (N, 3))
     pts = np.transpose(np.matmul(R, np.transpose(pts))) + pos
-    ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    # ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    ring_segments = [(pts[i], pts[i + 1]) for i in range(len(ring_pts) - 1)]
+    print(ring_segments)
+    ring.set_segments(ring_segments)
+    colors = [(np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)) for _ in range(len(ring_segments))]
+    ring.set_colors(colors)
 
     # update handle
     pts = [(0, -ring_r_inner, 0), (0, -ring_r_outer - handle_length, 0)]
@@ -58,6 +64,116 @@ def draw_wand(ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_t
     handle.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
 
     return ring, handle
+
+
+def closestDistanceBetweenLines(a0, a1, b0, b1, clampAll=False, clampA0=False, clampA1=False, clampB0=False,
+                                clampB1=False):
+    """
+    Given two lines defined by numpy.array pairs (a0,a1,b0,b1)
+    Returns the closest points on each segment and their distance
+    Source: https://stackoverflow.com/questions/2824478/shortest-distance-between-two-line-segments
+
+    :param a0:
+    :param a1:
+    :param b0:
+    :param b1:
+    :param clampAll:
+    :param clampA0:
+    :param clampA1:
+    :param clampB0:
+    :param clampB1:
+    :return:
+    """
+
+    # If clampAll=True, set all clamps to True
+    if clampAll:
+        clampA0 = True
+        clampA1 = True
+        clampB0 = True
+        clampB1 = True
+
+    # Calculate denomitator
+    A = a1 - a0
+    B = b1 - b0
+    magA = np.linalg.norm(A)
+    magB = np.linalg.norm(B)
+
+    _A = A/magA
+    _B = B/magB
+
+    cross = np.cross(_A, _B)
+    denom = np.linalg.norm(cross)**2
+
+    # If lines are parallel (denom=0) test if lines overlap.
+    # If they don't overlap then there is a closest point solution.
+    # If they do overlap, there are infinite closest positions, but there is a closest distance
+    if not denom:
+        d0 = np.dot(_A, (b0 - a0))
+
+        # Overlap only possible with clamping
+        if clampA0 or clampA1 or clampB0 or clampB1:
+            d1 = np.dot(_A, (b1 - a0))
+
+            # Is segment B before A?
+            if d0 <= 0 >= d1:
+                if clampA0 and clampB1:
+                    if np.absolute(d0) < np.absolute(d1):
+                        return a0, b0, np.linalg.norm(a0 - b0)
+                    return a0, b1, np.linalg.norm(a0 - b1)
+
+
+            # Is segment B after A?
+            elif d0 >= magA <= d1:
+                if clampA1 and clampB0:
+                    if np.absolute(d0) < np.absolute(d1):
+                        return a1, b0, np.linalg.norm(a1 - b0)
+                    return a1, b1, np.linalg.norm(a1 - b1)
+
+        # Segments overlap, return distance between parallel segments
+        return None, None, np.linalg.norm(((d0*_A) + a0) - b0)
+
+    # Lines criss-cross: Calculate the projected closest points
+    t = (b0 - a0)
+    detA = np.linalg.det([t, _B, cross])
+    detB = np.linalg.det([t, _A, cross])
+
+    t0 = detA/denom
+    t1 = detB/denom
+
+    pA = a0 + (_A*t0)  # Projected closest point on segment A
+    pB = b0 + (_B*t1)  # Projected closest point on segment B
+
+    # Clamp projections
+    if clampA0 or clampA1 or clampB0 or clampB1:
+        if clampA0 and t0 < 0:
+            pA = a0
+        elif clampA1 and t0 > magA:
+            pA = a1
+
+        if clampB0 and t1 < 0:
+            pB = b0
+        elif clampB1 and t1 > magB:
+            pB = b1
+
+        # Clamp projection A
+        if (clampA0 and t0 < 0) or (clampA1 and t0 > magA):
+            dot = np.dot(_B, (pA - b0))
+            if clampB0 and dot < 0:
+                dot = 0
+            elif clampB1 and dot > magB:
+                dot = magB
+            pB = b0 + (_B*dot)
+
+        # Clamp projection B
+        if (clampB0 and t1 < 0) or (clampB1 and t1 > magB):
+            dot = np.dot(_A, (pB - a0))
+            if clampA0 and dot < 0:
+                dot = 0
+            elif clampA1 and dot > magA:
+                dot = magA
+            pA = a0 + (_A*dot)
+
+    return pA, pB, np.linalg.norm(pA - pB)
 
 
 if __name__ == "__main__":
@@ -81,17 +197,29 @@ if __name__ == "__main__":
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
     ax.set_zlabel("z (m)")
-    ring, = plt.plot([], [])  # , lw=(ring_r_outer-ring_r_inner)/2)
+    # ring, = plt.plot([], [])  # , lw=(ring_r_outer-ring_r_inner)/2)
+
+    N = 10
+    ring_r_avg = (ring_r_outer + ring_r_inner)/2
+    ring_pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
+    ring_segments = [(ring_pts[i], ring_pts[i + 1]) for i in range(len(ring_pts) - 1)]
+    colors = [(0, 255, 0) for _ in range(len(ring_segments))]
+    ring = Line3DCollection(ring_segments, colors=colors, linewidths=2)
+    ax.add_collection(ring)
     handle, = plt.plot([], [])
 
     # Plot spline curve
     # ax.plot(curve[:, 0], curve[:, 1], curve[:, 2])
-    ring, handle = draw_wand(ax, ring, handle, np.array([0, 0, 1]), np.eye(3))
+    pos = np.array([0, 0, 1])
+    R = np.eye(3)
+    ring, handle = draw_wand(ax, ring, handle, pos, R, N=N)
+
     print(type(ring))
 
-    plt.show()
+    # plt.show()
 
     while True:
+        ring, handle = draw_wand(ax, ring, handle, pos, R, N=N)
         plt.draw()
         plt.pause(0.01)
 

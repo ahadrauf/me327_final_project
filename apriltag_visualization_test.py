@@ -195,11 +195,11 @@ if __name__ == "__main__":
             ring, handle = draw_wand(ax, ring, handle, tags[0].pose_t, tags[0].pose_R, change_perspective=True)
             # print(tags[0].pose_t)
         plt.draw()
-        plt.pause(0.01)
+        plt.pause(0.001)
 
         # the 'q' button is set as the quitting button
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
         num_loops += 1
 
         if num_loops == print_every:

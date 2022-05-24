@@ -2,13 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b37f7daa-b947-49fb-af7c-2063bf1d045f" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/emeet_camera_calibration_matlab_1920x1080.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/emeet_camera_calibration_matlab_640x480.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/serial_test/serial_test.ino" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/apriltag_visualization_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/apriltag_visualization_test.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/arduino_serial_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/arduino_serial_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/emeet_camera_calibration_matlab.pdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/visualization_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/visualization_test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,7 +36,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python.arduino_serial_test">
+  <component name="RunManager" selected="Python.visualization_test">
     <configuration name="apriltag_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="me327_final_project" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -126,10 +123,10 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.arduino_serial_test" />
-        <item itemvalue="Python.apriltag_visualization_test" />
-        <item itemvalue="Python.apriltag_test" />
         <item itemvalue="Python.visualization_test" />
+        <item itemvalue="Python.apriltag_visualization_test" />
+        <item itemvalue="Python.arduino_serial_test" />
+        <item itemvalue="Python.apriltag_test" />
       </list>
     </recent_temporary>
   </component>
@@ -154,6 +151,7 @@
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />

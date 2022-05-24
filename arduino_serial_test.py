@@ -2,7 +2,7 @@ import serial
 import struct
 import time
 
-arduino = serial.Serial(port='COM15', baudrate=115200, timeout=.1)
+arduino = serial.Serial(port='COM10', baudrate=115200, timeout=.1)
 
 
 def write_read(x):
