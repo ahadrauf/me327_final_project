@@ -31,7 +31,7 @@ def hermite_interpolation(t, p0, p1, m0, m1):
     return h00*p0 + h10*m0 + h01*p1 + h11*m1
 
 
-def draw_wand(ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.art3d.Line3D,
+def draw_wand(ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.art3d.Line3D, spline_midpoints: np.ndarray,
               pos: np.ndarray, R: np.ndarray, N: int = 10):
     """
     Generates a 3D visualization for the arm
@@ -51,11 +51,17 @@ def draw_wand(ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.a
     pts = np.reshape(pts, (N, 3))
     pts = np.transpose(np.matmul(R, np.transpose(pts))) + pos
     # ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    pts_midpoints = (pts[:-1] + pts[1:])/2
     ring_segments = [(pts[i], pts[i + 1]) for i in range(len(ring_pts) - 1)]
-    print(ring_segments)
     ring.set_segments(ring_segments)
-    colors = [(np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)) for _ in range(len(ring_segments))]
+
+    distances = [np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint, pts_midpoint in zip(spline_midpoints, pts_midpoints)]
+    colors = []
+    for d in distances:
+        colors.append((np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)))
+        # colors.append((int(d*20), int(d*20), int(d*20)))
     ring.set_colors(colors)
+    print(colors)
 
     # update handle
     pts = [(0, -ring_r_inner, 0), (0, -ring_r_outer - handle_length, 0)]
@@ -189,6 +195,9 @@ if __name__ == "__main__":
                                             np.array(tangents[i]), np.array(tangents[i + 1]))]
     curve += [np.array(control_pts[-1])]
     curve = np.array(curve)
+    curve_midpoints = (curve[:-1] + curve[1:])/2
+    print(curve)
+    print(curve_midpoints)
 
     # Setup plot
     fig = plt.figure()
@@ -212,14 +221,15 @@ if __name__ == "__main__":
     # ax.plot(curve[:, 0], curve[:, 1], curve[:, 2])
     pos = np.array([0, 0, 1])
     R = np.eye(3)
-    ring, handle = draw_wand(ax, ring, handle, pos, R, N=N)
+    ring, handle = draw_wand(ax, ring, handle, curve_midpoints, pos, R, N=N)
 
     print(type(ring))
 
     # plt.show()
 
     while True:
-        ring, handle = draw_wand(ax, ring, handle, pos, R, N=N)
+        pos = np.array([np.random.random(), np.random.random(), np.random.random()])
+        ring, handle = draw_wand(ax, ring, handle, curve_midpoints, pos, R, N=N)
         plt.draw()
         plt.pause(0.01)
 

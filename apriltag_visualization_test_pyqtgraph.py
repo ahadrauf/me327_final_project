@@ -6,7 +6,10 @@ import pupil_apriltags
 from datetime import datetime
 import mpl_toolkits.mplot3d.art3d
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
+
 # matplotlib.use('GTK3Agg')
+matplotlib.use('Qt5Agg')
 
 INCH_TO_METERS = 0.0254
 
@@ -45,7 +48,7 @@ def hermite_interpolation(t, p0, p1, m0, m1):
     return h00*p0 + h10*m0 + h01*p1 + h11*m1
 
 
-def draw_wand(fig, background, ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line3D, handle: mpl_toolkits.mplot3d.art3d.Line3D,
+def draw_wand(fig, background, ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.art3d.Line3D, spline_midpoints: np.ndarray,
               pos: np.ndarray, R: np.ndarray, N: int = 10, change_perspective: bool = False):
     """
     Generates a 3D visualization for the arm
@@ -66,8 +69,6 @@ def draw_wand(fig, background, ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line
                      [-1, 0, 0],
                      [0, -1, 0]])
 
-    # fig.canvas.restore_region(background)  # this method is based on https://stackoverflow.com/questions/8955869/why-is-plotting-with-matplotlib-so-slow
-
     # update ring points
     ring_r_avg = (ring_r_outer + ring_r_inner)/2
     pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
@@ -75,7 +76,31 @@ def draw_wand(fig, background, ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line
     pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
     if change_perspective:
         pts = np.transpose(np.matmul(swap, np.transpose(pts)))
-    ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    # ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    ring_segments = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+    ring.set_segments(ring_segments)
+
+    pts_midpoints = (pts[:-1] + pts[1:])/2
+    # distances = [np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint, pts_midpoint in
+    #              zip(spline_midpoints, pts_midpoints)]
+    distances = [np.min([np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint in spline_midpoints]) for pts_midpoint in pts_midpoints]
+    pos_swapped = np.matmul(swap, pos).flatten()
+    distances_to_center = np.min([np.linalg.norm(spline_midpoint - pos_swapped) for spline_midpoint in spline_midpoints])
+    inside = distances_to_center < ring_r_inner
+    colors = []
+    for d in distances:
+        if d > ring_r_inner*2/3/5 and inside:
+            colors.append((0, 255, 0))
+        elif d > ring_r_inner*1/3/5 and inside:
+            colors.append((255, 255, 0))
+        else:
+            colors.append((255, 0, 0))
+        # colors.append((int(d*20), int(d*20), int(d*20)))
+    print(distances, distances_to_center, inside)
+    print(colors)
+    print([np.shape(spline_midpoint) for spline_midpoint in spline_midpoints])
+    print(np.shape(pos))
+    ring.set_colors(colors)
     # print(np.mean(pts, axis=0))
 
     # update handle
@@ -86,12 +111,14 @@ def draw_wand(fig, background, ax: Axes3D, ring: mpl_toolkits.mplot3d.art3d.Line
         pts = np.transpose(np.matmul(swap, np.transpose(pts)))
     handle.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
 
+    # this method is based on https://stackoverflow.com/questions/8955869/why-is-plotting-with-matplotlib-so-slow
     # https://stackoverflow.com/questions/40126176/fast-live-plotting-in-matplotlib-pyplot
-
-    # ax.draw_artist(ring)
-    # ax.draw_artist(handle)
+    fig.canvas.restore_region(background)
+    ax.draw_artist(ring)
+    ax.draw_artist(handle)
+    fig.canvas.update()
     # fig.canvas.blit(ax.bbox)
-    # fig.canvas.flush_events()
+    fig.canvas.flush_events()
 
     return ring, handle
 
@@ -143,6 +170,8 @@ if __name__ == "__main__":
                                             np.array(tangents[i]), np.array(tangents[i + 1]))]
     curve += [np.array(control_pts[-1])]
     curve = np.array(curve)
+    curve_midpoints = (curve[:-1] + curve[1:])/2
+    # print(curve)
 
     # define helper variables
     print_every = 50
@@ -157,6 +186,7 @@ if __name__ == "__main__":
 
     # Setup plot
     plt.rcParams["figure.figsize"] = [15.00, 10]
+    plt.ion()
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     ax.grid(False)
@@ -166,14 +196,27 @@ if __name__ == "__main__":
     ax.set_xlim(0, 1.5)
     ax.set_ylim(-0.2, 0.2)
     ax.set_zlim(-0.2, 0.2)
-    spline, = plt.plot(curve[:, 0], curve[:, 1], curve[:, 2])
-    ring, = plt.plot([], [])  # , lw=(ring_r_outer-ring_r_inner)/2)
-    handle, = plt.plot([], [])
+    # ring, = plt.plot([], [], lw=3)  # , lw=(ring_r_outer-ring_r_inner)/2)
+
+    N = 15
+    ring_r_avg = (ring_r_outer + ring_r_inner)/2
+    ring_pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
+    ring_segments = [(ring_pts[i], ring_pts[i + 1]) for i in range(len(ring_pts) - 1)]
+    colors = [(0, 255, 0) for _ in range(len(ring_segments))]
+    ring = Line3DCollection(ring_segments, colors=colors, linewidths=3)
+    ax.add_collection(ring)
+    handle, = plt.plot([], [], lw=3)
+
+    # handle, = plt.plot([], [], lw=3)
+    spline, = plt.plot(curve[:, 0], curve[:, 1], curve[:, 2], lw=5)
     plt.tight_layout()
 
     fig.canvas.draw()
     background = fig.canvas.copy_from_bbox(ax.bbox)
     plt.show(block=False)
+
+    times = []
+    count = 0
 
     # manager = plt.get_current_fig_manager()
     # manager.full_screen_toggle()
@@ -183,20 +226,19 @@ if __name__ == "__main__":
         greyscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         tags = detect_ar_tag(greyscale, apriltag_detector, estimate_tag_pose, camera_params, tag_size)
 
-        # for tag in tags:
-        #     corners = np.array(tag.corners).astype("int")
-        #     for corner in corners:
-        #         frame = cv2.circle(frame, corner, 10, BLUE)
-        #     frame = cv2.polylines(frame, [corners], isClosed=True, color=BLUE, thickness=4)
+        for tag in tags:
+            corners = np.array(tag.corners).astype("int")
+            for corner in corners:
+                frame = cv2.circle(frame, corner, 10, BLUE)
+            frame = cv2.polylines(frame, [corners], isClosed=True, color=BLUE, thickness=4)
 
         # cv2.imshow('Camera Feed', cv2.resize(frame, (640, 360)))
-        # cv2.imshow('Camera Feed', frame)
+        cv2.imshow('Camera Feed', frame)
 
         if len(tags) > 0:
-            ring, handle = draw_wand(fig, background, ax, ring, handle, tags[0].pose_t, tags[0].pose_R, change_perspective=True)
+            ring, handle = draw_wand(fig, background, ax, ring, handle, curve_midpoints, tags[0].pose_t, tags[0].pose_R, N=N, change_perspective=True)
             # print(tags[0].pose_t)
         # plt.draw()
-        fig.canvas.draw_idle()
         plt.pause(0.001)
 
         # the 'q' button is set as the quitting button
@@ -204,9 +246,16 @@ if __name__ == "__main__":
         #     break
         num_loops += 1
 
+        currTime = datetime.now()
+        times.append((currTime - lastTime).total_seconds())
+        lastTime = currTime
+        if times[-1] > 0.33:
+            count += 1
+
         if num_loops == print_every:
-            print("Avg. FPS:", print_every/(datetime.now() - lastTime).total_seconds())
-            lastTime = datetime.now()
+            print("Avg. FPS:", np.mean(times), np.std(times), np.min(times), np.sort(times)[-10:], count)
+        # #     print("Avg. FPS:", print_every/(datetime.now() - lastTime).total_seconds())
+        # #     lastTime = datetime.now()
             num_loops = 0
 
     vid.release()
