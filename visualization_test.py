@@ -58,7 +58,8 @@ def draw_wand(ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.a
     distances = [np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint, pts_midpoint in zip(spline_midpoints, pts_midpoints)]
     colors = []
     for d in distances:
-        colors.append((np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)))
+        # colors.append((1, 0, 0, 1))
+        colors.append((np.random.random(), np.random.random(), np.random.random()))
         # colors.append((int(d*20), int(d*20), int(d*20)))
     ring.set_colors(colors)
     print(colors)

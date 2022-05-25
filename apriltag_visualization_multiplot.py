@@ -6,6 +6,7 @@ import pupil_apriltags
 from datetime import datetime
 import mpl_toolkits.mplot3d.art3d
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 # matplotlib.use('GTK3Agg')
@@ -13,43 +14,80 @@ matplotlib.use('Qt5Agg')
 
 INCH_TO_METERS = 0.0254
 
+easiness_factor = 1.5
+
 thickness = 0.02*2  # thickness of wand
-ring_r_inner = 0.075/2  # inner radius of the ring (m)
-ring_r_outer = 0.045  # outer radius of the ring (m)
+ring_r_inner = 0.075/2*easiness_factor  # inner radius of the ring (m)
+ring_r_outer = 0.045*easiness_factor  # outer radius of the ring (m)
 handle_length = 0.130  # handle length
 handle_width = 0.03  # handle width
 
+N_ring = 15
+ring_r_avg = (ring_r_outer + ring_r_inner)/2
+ring_pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N_ring)]
+ring_pts = np.reshape(ring_pts, (N_ring, 3))
+
+
+def setup_plot():
+    fig = plt.figure()
+    ax_3d = fig.add_subplot(121, projection='3d')
+    ax_xy = fig.add_subplot(322)
+    ax_yz = fig.add_subplot(324)
+    ax_xz = fig.add_subplot(326)
+
+    for ax in [ax_3d, ax_xy, ax_yz, ax_xz]:
+        ax.grid(False)
+
+    # Setup 3D plot
+    ax_3d.set_title("3D Projection")
+    ax_3d.set_xlabel("X (m)")
+    ax_3d.set_ylabel("Y (m)")
+    ax_3d.set_zlabel("Z (m)")
+    ax_3d.set_xlim(0, 2)
+    ax_3d.set_ylim(-0.2, 0.2)
+    ax_3d.set_zlim(-0.2, 0.2)
+
+    # Setup x, y, z plots
+    ax_xy.set_title("XY Projection")
+    ax_yz.set_title("YZ Projection")
+    ax_xz.set_title("XZ Projection")
+    ax_xy.set_xlabel("X (m)")
+    ax_xy.set_ylabel("Y (m)")
+    ax_yz.set_xlabel("Y (m)")
+    ax_yz.set_ylabel("Z (m)")
+    ax_xz.set_xlabel("X (m)")
+    ax_xz.set_ylabel("Z (m)")
+    ax_xy.set_xlim(0, 2)
+    ax_xy.set_ylim(-0.2, 0.2)
+    ax_yz.set_xlim(-0.2, 0.2)
+    ax_yz.set_ylim(-0.2, 0.2)
+    ax_xz.set_xlim(0, 2)
+    ax_xz.set_ylim(-0.2, 0.2)
+    # ax_xy.view_init(azim=270, elev=90)
+    # ax_yz.view_init(azim=90, elev=90)
+    # ax_xz.view_init(azim=270, elev=0)
+
+    return fig, (ax_3d, ax_xy, ax_yz, ax_xz)
+
+
+def segment_pts(pts):
+    segments_3d = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+    segments_xy = [(pts[i, [True, True, False]], pts[i + 1, [True, True, False]]) for i in range(len(pts) - 1)]
+    segments_yz = [(pts[i, [False, True, True]], pts[i + 1, [False, True, True]]) for i in range(len(pts) - 1)]
+    segments_xz = [(pts[i, [True, False, True]], pts[i + 1, [True, False, True]]) for i in range(len(pts) - 1)]
+    return segments_3d, segments_xy, segments_yz, segments_xz
+
 
 def detect_ar_tag(img, apriltag_detector, estimate_tag_pose=False, camera_params=None, tag_size=None):
-    start = datetime.now()
+    # start = datetime.now()
     tags = apriltag_detector.detect(img, estimate_tag_pose=estimate_tag_pose, camera_params=camera_params,
                                     tag_size=tag_size)
     # print((datetime.now() - start).total_seconds())
     return tags
 
 
-def hermite_interpolation(t, p0, p1, m0, m1):
-    """
-    Cubic hermite interpolation
-    https://en.wikipedia.org/wiki/Cubic_Hermite_spline
-    :param t: Time [0, 1]
-    :param p0: Initial position (t = 0)
-    :param p1: Final position (t = 1)
-    :param m0: Initial tangent (t = 0)
-    :param m1: Final tangent (t = 1)
-    :return: Point at time t
-    """
-    t2 = t*t
-    t3 = t*t*t
-    h00 = 2*t3 - 3*t2 + 1
-    h10 = t3 - 2*t2 + t
-    h01 = -2*t3 + 3*t2
-    h11 = t3 - t2
-    return h00*p0 + h10*m0 + h01*p1 + h11*m1
-
-
-def draw_wand(fig, background, ax: Axes3D, ring: Line3DCollection, handle: mpl_toolkits.mplot3d.art3d.Line3D, spline_midpoints: np.ndarray,
-              pos: np.ndarray, R: np.ndarray, N: int = 10, change_perspective: bool = False):
+def draw_wand(fig, axs, backgrounds, rings, handles, spline_midpoints: np.ndarray,
+              pos: np.ndarray, R: np.ndarray, change_perspective: bool = False):
     """
     Generates a 3D visualization for the arm
 
@@ -62,30 +100,22 @@ def draw_wand(fig, background, ax: Axes3D, ring: Line3DCollection, handle: mpl_t
     :param N: Number of points used to describe the ring
     :return: None
     """
-    # swap = np.array([[0, 0, 1],
-    #                  [0, 1, 0],
-    #                  [-1, 0, 0]])
+    global ring_pts
     swap = np.array([[0, 0, 1],
                      [-1, 0, 0],
-                     [0, -1, 0]])
+                     [0, -1, 0]])  # change camera perspective to best viewing perspective
 
     # update ring points
-    ring_r_avg = (ring_r_outer + ring_r_inner)/2
-    pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
-    pts = np.reshape(pts, (N, 3))
-    pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
+    pts = np.transpose(np.matmul(R, np.transpose(ring_pts))) + np.ndarray.flatten(pos)
     if change_perspective:
         pts = np.transpose(np.matmul(swap, np.transpose(pts)))
-    # ring.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
-    ring_segments = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
-    ring.set_segments(ring_segments)
 
     pts_midpoints = (pts[:-1] + pts[1:])/2
-    # distances = [np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint, pts_midpoint in
-    #              zip(spline_midpoints, pts_midpoints)]
-    distances = [np.min([np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint in spline_midpoints]) for pts_midpoint in pts_midpoints]
+    distances = [np.min([np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint in spline_midpoints]) for
+                 pts_midpoint in pts_midpoints]
     pos_swapped = np.matmul(swap, pos).flatten()
-    distances_to_center = np.min([np.linalg.norm(spline_midpoint - pos_swapped) for spline_midpoint in spline_midpoints])
+    distances_to_center = np.min(
+        [np.linalg.norm(spline_midpoint - pos_swapped) for spline_midpoint in spline_midpoints])
     inside = distances_to_center < ring_r_inner
     colors = []
     for d in distances:
@@ -96,13 +126,11 @@ def draw_wand(fig, background, ax: Axes3D, ring: Line3DCollection, handle: mpl_t
             colors.append((1, 1, 0))
         else:
             colors.append((1, 0, 0))
-        # colors.append((int(d*20), int(d*20), int(d*20)))
-    print(distances, distances_to_center, inside)
-    print(colors)
-    print([np.shape(spline_midpoint) for spline_midpoint in spline_midpoints])
-    print(np.shape(pos))
-    ring.set_colors(colors)
-    # print(np.mean(pts, axis=0))
+
+    segments = segment_pts(pts)
+    for ring, segment in zip(rings, segments):
+        ring.set_segments(segment)
+        ring.set_colors(colors)
 
     # update handle
     pts = [(ring_r_inner, 0, 0), (ring_r_outer + handle_length, 0, 0)]
@@ -110,18 +138,20 @@ def draw_wand(fig, background, ax: Axes3D, ring: Line3DCollection, handle: mpl_t
     pts = np.transpose(np.matmul(R, np.transpose(pts))) + np.ndarray.flatten(pos)
     if change_perspective:
         pts = np.transpose(np.matmul(swap, np.transpose(pts)))
-    handle.set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    handles[0].set_data_3d(pts[:, 0], pts[:, 1], pts[:, 2])
+    handles[1].set_data(pts[:, 0], pts[:, 1])
+    handles[2].set_data(pts[:, 1], pts[:, 2])
+    handles[3].set_data(pts[:, 0], pts[:, 2])
 
     # this method is based on https://stackoverflow.com/questions/8955869/why-is-plotting-with-matplotlib-so-slow
     # https://stackoverflow.com/questions/40126176/fast-live-plotting-in-matplotlib-pyplot
-    fig.canvas.restore_region(background)
-    ax.draw_artist(ring)
-    ax.draw_artist(handle)
-    fig.canvas.update()
-    # fig.canvas.blit(ax.bbox)
+    for background, ax, ring, handle in zip(backgrounds, axs, rings, handles):
+        fig.canvas.restore_region(background)
+        ax.draw_artist(ring)
+        ax.draw_artist(handle)
+        fig.canvas.blit(ax.bbox)
+    # fig.canvas.update()
     fig.canvas.flush_events()
-
-    return ring, handle
 
 
 if __name__ == "__main__":
@@ -152,27 +182,17 @@ if __name__ == "__main__":
     camera_params = [263.5568, 269.5951, 179.0278, 147.3135]  # from matlab calibration, 352x288
     tag_size = 3*INCH_TO_METERS
 
-    # define AR tag tracking variables
-    # camera matrix for E-Meet (https://smile.amazon.com/gp/product/B08DXSG5QR/)
-    # K = compute_intrinsic_camera_matrix(1920, 1080, fov_x=46.4*2, fov_y=29.1*2)
-    # K = compute_intrinsic_camera_matrix(width, height, fov_x=46.4*2, fov_y=29.1*2)
-    # print("K", K)
-    # ref_img = cv2.imread("./images/ar_tag_1_v2.jpg", cv2.IMREAD_GRAYSCALE)
-
-    control_pts = 0.1*np.array([[2, 0, 0], [4, 0, 1], [6, 0, 0], [8, 0, 1], [10, 0, 0.5], [12, 0, 0], [14, 0, 0]])
-    tangents = 0.2*np.array([[1, 0, 0]]*len(control_pts))  # every tangent = in x-direction
-
     # Compute spline curve
-    num_points_per_spline = 20
+    N_curve = 100
+    x_min = 0.25
+    x_max = 1.5
     curve = []
-    for i in range(len(control_pts) - 1):
-        for t in np.linspace(0, 1, num_points_per_spline, endpoint=False):
-            curve += [hermite_interpolation(t, np.array(control_pts[i]), np.array(control_pts[i + 1]),
-                                            np.array(tangents[i]), np.array(tangents[i + 1]))]
-    curve += [np.array(control_pts[-1])]
+    curve_z = lambda x: 0.05*(np.sin(4*x) + np.cos(7*x))
+    for x in np.linspace(x_min, x_max, N_curve):
+        curve += [np.array([x, 0.0, curve_z(x - x_min)])]
     curve = np.array(curve)
     curve_midpoints = (curve[:-1] + curve[1:])/2
-    # print(curve)
+    print(curve)
 
     # define helper variables
     print_every = 50
@@ -186,34 +206,29 @@ if __name__ == "__main__":
     # cv2.setWindowProperty('Camera Feed', cv2.WND_PROP_TOPMOST, 1)
 
     # Setup plot
-    plt.rcParams["figure.figsize"] = [15.00, 10]
-    plt.ion()
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
-    ax.grid(False)
-    ax.set_xlabel("x (m)")
-    ax.set_ylabel("y (m)")
-    ax.set_zlabel("z (m)")
-    ax.set_xlim(0, 1.5)
-    ax.set_ylim(-0.2, 0.2)
-    ax.set_zlim(-0.2, 0.2)
+    plt.rcParams["figure.figsize"] = [15, 10]
+    # plt.ion()
+    fig, axs = setup_plot()
+    ax_3d, ax_xy, ax_yz, ax_xz = axs
     # ring, = plt.plot([], [], lw=3)  # , lw=(ring_r_outer-ring_r_inner)/2)
 
-    N = 15
-    ring_r_avg = (ring_r_outer + ring_r_inner)/2
-    ring_pts = [(ring_r_avg*np.cos(t), ring_r_avg*np.sin(t), 0) for t in np.linspace(0, 2*np.pi, N)]
-    ring_segments = [(ring_pts[i], ring_pts[i + 1]) for i in range(len(ring_pts) - 1)]
-    colors = [(0, 255, 0) for _ in range(len(ring_segments))]
-    ring = Line3DCollection(ring_segments, colors=colors, linewidths=3)
-    ax.add_collection(ring)
-    handle, = plt.plot([], [], lw=3)
-
-    # handle, = plt.plot([], [], lw=3)
-    spline, = plt.plot(curve[:, 0], curve[:, 1], curve[:, 2], lw=5)
+    # ring_segments = [(ring_pts[i], ring_pts[i + 1]) for i in range(len(ring_pts) - 1)]
+    segments = segment_pts(ring_pts)
+    colors = [(0, 1, 0) for _ in range(len(segments[0]))]
+    rings = [Line3DCollection([], colors=[], linewidths=3)]
+    for i in range(1, 4):
+        rings += [LineCollection([], colors=[], linewidths=3)]
+    for ax, ring in zip(axs, rings):
+        ax.add_collection(ring)
+    handles = [ax.plot([], [], lw=3)[0] for ax in axs]
+    splines = [ax_3d.plot(curve[:, 0], curve[:, 1], curve[:, 2], lw=5),
+               ax_xy.plot(curve[:, 0], curve[:, 1], lw=5),
+               ax_yz.plot(curve[:, 1], curve[:, 2], lw=5),
+               ax_xz.plot(curve[:, 0], curve[:, 2], lw=5)]
     plt.tight_layout()
 
     fig.canvas.draw()
-    background = fig.canvas.copy_from_bbox(ax.bbox)
+    backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axs]
     plt.show(block=False)
 
     times = []
@@ -237,10 +252,9 @@ if __name__ == "__main__":
         cv2.imshow('Camera Feed', frame)
 
         if len(tags) > 0:
-            ring, handle = draw_wand(fig, background, ax, ring, handle, curve_midpoints, tags[0].pose_t, tags[0].pose_R, N=N, change_perspective=True)
-            # print(tags[0].pose_t)
-        # plt.draw()
-        plt.pause(0.001)
+            draw_wand(fig, axs, backgrounds, rings, handles, curve_midpoints, tags[0].pose_t, tags[0].pose_R, change_perspective=True)
+        plt.draw()
+        # plt.pause(0.001)
 
         # the 'q' button is set as the quitting button
         # if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -254,9 +268,10 @@ if __name__ == "__main__":
             count += 1
 
         if num_loops == print_every:
-            print("Avg. FPS:", np.mean(times), np.std(times), np.min(times), np.sort(times)[-10:], count)
-        # #     print("Avg. FPS:", print_every/(datetime.now() - lastTime).total_seconds())
-        # #     lastTime = datetime.now()
+            fps = 1./np.array(times)
+            print("Avg. FPS:", np.mean(fps), np.std(fps), np.min(fps), np.max(fps), np.sort(times)[:10], count)
+            # #     print("Avg. FPS:", print_every/(datetime.now() - lastTime).total_seconds())
+            # #     lastTime = datetime.now()
             num_loops = 0
 
     vid.release()
