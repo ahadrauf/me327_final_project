@@ -8,13 +8,21 @@ import mpl_toolkits.mplot3d.art3d
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
+import serial
+import struct
 
 # matplotlib.use('GTK3Agg')
 matplotlib.use('Qt5Agg')
 
 INCH_TO_METERS = 0.0254
+arduino_COM = "COM10"
 
 easiness_factor = 1.75
+
+top_left_pin = 5
+top_right_pin = 11
+bottom_left_pin = 9
+bottom_right_pin = 6
 
 thickness = 0.02*2  # thickness of wand
 ring_r_inner = 0.075/2*easiness_factor  # inner radius of the ring (m)
@@ -71,15 +79,10 @@ def setup_plot():
 
 
 def segment_pts(pts):
-    # segments_3d = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
-    # segments_xy = [(pts[i, [True, True, False]], pts[i + 1, [True, True, False]]) for i in range(len(pts) - 1)]
-    # segments_yz = [(pts[i, [False, True, True]], pts[i + 1, [False, True, True]]) for i in range(len(pts) - 1)]
-    # segments_xz = [(pts[i, [True, False, True]], pts[i + 1, [True, False, True]]) for i in range(len(pts) - 1)]
-    pts = np.transpose(pts)
-    segments_3d = [(pts[:, i], pts[:, i + 1]) for i in range(pts.shape[1] - 1)]
-    segments_xy = [(pts[[True, True, False], i], pts[[True, True, False], i + 1]) for i in range(pts.shape[1] - 1)]
-    segments_yz = [(pts[[False, True, True], i], pts[[False, True, True], i + 1]) for i in range(pts.shape[1] - 1)]
-    segments_xz = [(pts[[True, False, True], i], pts[[True, False, True], i + 1]) for i in range(pts.shape[1] - 1)]
+    segments_3d = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+    segments_xy = [(pts[i, [True, True, False]], pts[i + 1, [True, True, False]]) for i in range(len(pts) - 1)]
+    segments_yz = [(pts[i, [False, True, True]], pts[i + 1, [False, True, True]]) for i in range(len(pts) - 1)]
+    segments_xz = [(pts[i, [True, False, True]], pts[i + 1, [True, False, True]]) for i in range(len(pts) - 1)]
     return segments_3d, segments_xy, segments_yz, segments_xz
 
 
@@ -92,7 +95,7 @@ def detect_ar_tag(img, apriltag_detector, estimate_tag_pose=False, camera_params
 
 
 def draw_wand(fig, axs, backgrounds, rings, handles, spline_midpoints: np.ndarray,
-              pos: np.ndarray, R: np.ndarray, change_perspective: bool = False):
+              pos: np.ndarray, R: np.ndarray, arduino, change_perspective: bool = False):
     """
     Generates a 3D visualization for the arm
 
@@ -116,16 +119,43 @@ def draw_wand(fig, axs, backgrounds, rings, handles, spline_midpoints: np.ndarra
         pts = np.transpose(np.matmul(swap, np.transpose(pts)))
 
     pts_midpoints = (pts[:-1] + pts[1:])/2
-    distances = np.array([np.min([np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint in spline_midpoints]) for
-                 pts_midpoint in pts_midpoints])
+    distances = np.array(
+        [np.min([np.linalg.norm(spline_midpoint - pts_midpoint) for spline_midpoint in spline_midpoints]) for
+         pts_midpoint in pts_midpoints])
     pos_swapped = np.matmul(swap, pos).flatten()
-    distances_to_center = np.min(
-        [np.linalg.norm(spline_midpoint - pos_swapped) for spline_midpoint in spline_midpoints])
+    distances_to_center_arr = [np.linalg.norm(spline_midpoint - pos_swapped) for spline_midpoint in spline_midpoints]
+    distances_to_center_idx = np.argmin(distances_to_center_arr)
+    distances_to_center = distances_to_center_arr[distances_to_center_idx]
+    distances_to_center_vec = pos_swapped - spline_midpoints[distances_to_center_idx]
+
+    # distances_tl = np.mean(distances[:len(distances)//4])
+    # distances_tr = np.mean(distances[len(distances)//4:len(distances)//2])
+    # distances_br = np.mean(distances[len(distances)//2:len(distances)*3//4])
+    # distances_bl = np.mean(distances[len(distances)*3//4])
+    # idx_max_distance_quadrant = np.argmax([distances_tl, distances_tr, distances_br, distances_bl])
+    # max_distance_quadrant = [distances_tl, distances_tr, distances_br, distances_bl][idx_max_distance_quadrant]
+    arduino_pwm = int(min(0.8*255, distances_to_center/(ring_r_inner)*255))
+    if distances_to_center < ring_r_inner*2/3:
+        print("You're awesome!", distances_to_center, arduino_pwm)
+        write_to_arduino(arduino, 0, 0)
+    elif distances_to_center_vec[1] > 0 and distances_to_center_vec[2] > 0:
+        print("Currently too far top left", distances_to_center, arduino_pwm)
+        write_to_arduino(arduino, bottom_right_pin, arduino_pwm)
+    elif distances_to_center_vec[1] < 0 and distances_to_center_vec[2] > 0:
+        print("Currently too far top right", distances_to_center, arduino_pwm)
+        write_to_arduino(arduino, bottom_left_pin, arduino_pwm)
+    elif distances_to_center_vec[1] < 0 and distances_to_center_vec[2] < 0:
+        print("Currently too far bottom right", distances_to_center, arduino_pwm)
+        write_to_arduino(arduino, top_left_pin, arduino_pwm)
+    elif distances_to_center_vec[1] > 0 and distances_to_center_vec[2] < 0:
+        print("Currently too far bottom left", distances_to_center, arduino_pwm)
+        write_to_arduino(arduino, top_right_pin, arduino_pwm)
+
     inside = distances_to_center < ring_r_inner
     colors = []
     if not inside:
         distances -= np.min(distances)
-    print(distances)
+    # print(distances)
     for d in distances:
         # colors.append((np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)))
         if d > ring_r_inner*2/3:
@@ -161,7 +191,17 @@ def draw_wand(fig, axs, backgrounds, rings, handles, spline_midpoints: np.ndarra
 
     # this method is based on https://stackoverflow.com/questions/8955869/why-is-plotting-with-matplotlib-so-slow
     # https://stackoverflow.com/questions/40126176/fast-live-plotting-in-matplotlib-pyplot
-    return inside
+    for background, ax, ring, handle in zip(backgrounds, axs, rings, handles):
+        fig.canvas.restore_region(background)
+        ax.draw_artist(ring)
+        ax.draw_artist(handle)
+        fig.canvas.blit(ax.bbox)
+    # fig.canvas.update()
+    fig.canvas.flush_events()
+
+
+def write_to_arduino(arduino, pin, pwm):
+    arduino.write(struct.pack('>BB', pin, pwm))
 
 
 if __name__ == "__main__":
@@ -175,6 +215,9 @@ if __name__ == "__main__":
     # if width != 640:
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+    # Arduino
+    arduino = serial.Serial(port=arduino_COM, baudrate=115200, timeout=.1)
 
     # AprilTag settings
     apriltag_detector = pupil_apriltags.Detector(families="tag36h11",
@@ -190,7 +233,7 @@ if __name__ == "__main__":
     # camera_params = [443.8266, 443.4999, 320.3827, 247.3580]  # from matlab calibration, 640x480
     # camera_params = [233.4269, 232.5352, 214.9525, 123.1879]  # from matlab calibration, 424x240
     camera_params = [263.5568, 269.5951, 179.0278, 147.3135]  # from matlab calibration, 352x288
-    tag_size = 2.5*INCH_TO_METERS  # 2.875*INCH_TO_METERS # 2.5*INCH_TO_METERS
+    tag_size = 2.875*INCH_TO_METERS  # 2.5*INCH_TO_METERS
 
     # Compute spline curve
     N_curve = 100
@@ -198,11 +241,9 @@ if __name__ == "__main__":
     x_max = 1.5
     curve = []
     # curve_z = lambda x: 0.05*(np.sin(4*x) + np.cos(7*x))
-    curve_y = lambda x: 0.0
-    # curve_y = lambda x: 0.025*(np.sin(5*x) + np.cos(6*x))
-    curve_z = lambda x: 0.075*(np.sin(5*x) + np.cos(6*x))
+    curve_z = lambda x: 0.
     for x in np.linspace(x_min, x_max, N_curve):
-        curve += [np.array([x, curve_y(x - x_min), curve_z(x - x_min)])]
+        curve += [np.array([x, 0.0, curve_z(x - x_min)])]
     curve = np.array(curve)
     curve_midpoints = (curve[:-1] + curve[1:])/2
     print(curve)
@@ -239,7 +280,6 @@ if __name__ == "__main__":
                ax_xy.plot(curve[:, 0], curve[:, 1], lw=5),
                ax_yz.plot(curve[:, 1], curve[:, 2], lw=5),
                ax_xz.plot(curve[:, 0], curve[:, 2], lw=5)]
-    update_text = plt.gcf().text(0.02, 0.9, "", fontsize=14, color="black")
     plt.tight_layout()
 
     fig.canvas.draw()
@@ -263,26 +303,13 @@ if __name__ == "__main__":
                 frame = cv2.circle(frame, corner, 10, BLUE)
             frame = cv2.polylines(frame, [corners], isClosed=True, color=BLUE, thickness=4)
 
-        if len(tags) > 0:
-            inside = draw_wand(fig, axs, backgrounds, rings, handles, curve_midpoints, tags[0].pose_t, tags[0].pose_R, change_perspective=True)
-            if inside:
-                update_text.set_text("Good Job!")
-                update_text.set_color("black")
-            else:
-                update_text.set_text("GET BACK IN THE GAME!")
-                update_text.set_color("red")
-
-            for background, ax, ring, handle in zip(backgrounds, axs, rings, handles):
-                fig.canvas.restore_region(background)
-                ax.draw_artist(ring)
-                ax.draw_artist(handle)
-                fig.canvas.blit(ax.bbox)
-            # fig.canvas.update()
-            fig.canvas.flush_events()
-            plt.draw()
         # cv2.imshow('Camera Feed', cv2.resize(frame, (640, 360)))
         cv2.imshow('Camera Feed', frame)
-        key_input = cv2.waitKey(1) & 0xFF
+
+        if len(tags) > 0:
+            draw_wand(fig, axs, backgrounds, rings, handles, curve_midpoints, tags[0].pose_t, tags[0].pose_R, arduino,
+                      change_perspective=True)
+        plt.draw()
         # plt.pause(0.001)
 
         # the 'q' button is set as the quitting button
