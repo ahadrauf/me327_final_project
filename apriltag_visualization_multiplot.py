@@ -192,6 +192,7 @@ if __name__ == "__main__":
     camera_params = [263.5568, 269.5951, 179.0278, 147.3135]  # from matlab calibration, 352x288
     tag_size = 2.5*INCH_TO_METERS  # 2.875*INCH_TO_METERS # 2.5*INCH_TO_METERS
 
+
     # Compute spline curve
     N_curve = 100
     x_min = 0.25

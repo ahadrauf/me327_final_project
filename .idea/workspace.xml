@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b37f7daa-b947-49fb-af7c-2063bf1d045f" name="Default Changelist" comment="">
+<<<<<<< HEAD
       <change afterPath="$PROJECT_DIR$/apriltag_test.asv" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/apriltag_test.m" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/apriltag_visualization_multiplot_serial.py" afterDir="false" />
@@ -16,6 +17,11 @@
       <change afterPath="$PROJECT_DIR$/utils_plot.py" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/visualization_test.m" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+=======
+      <change afterPath="$PROJECT_DIR$/apriltag_visualization_multiplot_serial.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/visualization_test.asv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/visualization_test.m" afterDir="false" />
+>>>>>>> a81fc2acda5c78356209ec71fd277ec68c3646c0
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/apriltag_visualization_multiplot.py" beforeDir="false" afterPath="$PROJECT_DIR$/apriltag_visualization_multiplot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/serial_test/serial_test.ino" beforeDir="false" afterPath="$PROJECT_DIR$/serial_test/serial_test.ino" afterDir="false" />
@@ -49,7 +55,11 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
+<<<<<<< HEAD
   <component name="RunManager" selected="Python.parse_user_data">
+=======
+  <component name="RunManager" selected="Python.apriltag_visualization_multiplot_serial">
+>>>>>>> a81fc2acda5c78356209ec71fd277ec68c3646c0
     <configuration name="apriltag_visualization_multiplot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="me327_final_project" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -92,7 +102,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="apriltag_visualization_test_pyqtgraph" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="apriltag_visualization_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="me327_final_project" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -104,7 +114,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/apriltag_visualization_test_pyqtgraph.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/apriltag_visualization_test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -113,7 +123,11 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+<<<<<<< HEAD
     <configuration name="demo_directional_feedback" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+=======
+    <configuration name="apriltag_visualization_test_pyqtgraph" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+>>>>>>> a81fc2acda5c78356209ec71fd277ec68c3646c0
       <module name="me327_final_project" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -125,7 +139,11 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
+<<<<<<< HEAD
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/demo_directional_feedback.py" />
+=======
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/apriltag_visualization_test_pyqtgraph.py" />
+>>>>>>> a81fc2acda5c78356209ec71fd277ec68c3646c0
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -157,11 +175,20 @@
     </configuration>
     <recent_temporary>
       <list>
+<<<<<<< HEAD
         <item itemvalue="Python.parse_user_data" />
         <item itemvalue="Python.demo_directional_feedback" />
+=======
+        <item itemvalue="Python.apriltag_visualization_multiplot_serial" />
+>>>>>>> a81fc2acda5c78356209ec71fd277ec68c3646c0
         <item itemvalue="Python.apriltag_visualization_multiplot" />
         <item itemvalue="Python.apriltag_visualization_multiplot_serial" />
         <item itemvalue="Python.apriltag_visualization_test_pyqtgraph" />
+<<<<<<< HEAD
+=======
+        <item itemvalue="Python.visualization_test" />
+        <item itemvalue="Python.apriltag_visualization_test" />
+>>>>>>> a81fc2acda5c78356209ec71fd277ec68c3646c0
       </list>
     </recent_temporary>
   </component>
