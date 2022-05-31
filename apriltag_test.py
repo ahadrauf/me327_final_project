@@ -17,7 +17,9 @@ if __name__ == "__main__":
     # define a video capture object
     vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # width, height = 640*1, 480*1  # 640x480 = default width of camera, up to 1920x1080
-    width, height = 640*1, 360*1  # 640x480 = default width of camera, up to 1920x1080
+    # width, height = 640*1, 360*1  # 640x480 = default width of camera, up to 1920x1080
+    # width, height = 352, 288
+    width, height = 1920, 1080
     # if width != 640:
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -28,11 +30,16 @@ if __name__ == "__main__":
                                                  quad_decimate=1.0,
                                                  quad_sigma=0.0,
                                                  refine_edges=1,
-                                                 decode_sharpening=0.25,
+                                                 decode_sharpening=0.5,
                                                  debug=0)
     estimate_tag_pose = True
-    camera_params = [np.deg2rad(46.4*2), np.deg2rad(29.1*2), 0., 0.]  # [fx, fy, cx, cy]
-    tag_size = 2*INCH_TO_METERS
+    # camera_params = [np.deg2rad(46.4*2), np.deg2rad(29.1*2), 0., 0.]  # [fx, fy, cx, cy]
+    # camera_params = [np.deg2rad(46.4*2), np.deg2rad(29.1*2), 0., 0.]  # [fx, fy, cx, cy]
+    camera_params = [958.9126, 956.1364, 957.4814, 557.8223]  # from matlab calibration, 1920x1080
+    # camera_params = [443.8266, 443.4999, 320.3827, 247.3580]  # from matlab calibration, 640x480
+    # camera_params = [233.4269, 232.5352, 214.9525, 123.1879]  # from matlab calibration, 424x240
+    # camera_params = [263.5568, 269.5951, 179.0278, 147.3135]  # from matlab calibration, 352x288
+    tag_size = 0.069  # 2.5*INCH_TO_METERS
 
     # define AR tag tracking variables
     # camera matrix for E-Meet (https://smile.amazon.com/gp/product/B08DXSG5QR/)
@@ -49,16 +56,20 @@ if __name__ == "__main__":
     BLUE = (255, 0, 0)
     GREEN = (0, 255, 0)
     RED = (0, 0, 255)
+    times = []
 
     while True:
         ret, frame = vid.read()  # Capture the video frame by frame
-        print(np.shape(frame))
+        # print(np.shape(frame))
         greyscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        start_time = datetime.now()
         tags = detect_ar_tag(greyscale, apriltag_detector, estimate_tag_pose, camera_params, tag_size)
-        print(len(tags))
+        end_time = datetime.now()
+        times.append((end_time - start_time).total_seconds())
+        # print(len(tags))
 
         for tag in tags:
-            print(np.ndarray.flatten(tag.pose_t))  # , np.ndarray.flatten(tag.pose_R), tag.pose_err)
+            print(np.ndarray.flatten(tag.pose_t), np.mean(times), np.std(times))  # , np.ndarray.flatten(tag.pose_R), tag.pose_err)
             corners = np.array(tag.corners).astype("int")
             for corner in corners:
                 frame = cv2.circle(frame, corner, 10, BLUE)

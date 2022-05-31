@@ -3,25 +3,29 @@ from utils_plot import GamePhase, initialize_curve
 from scipy.spatial.distance import cdist
 from datetime import datetime
 
-file = "data/20220528_09_46_20_demo_directional_feedback_user0.npy"
+file = "data/20220529_10_20_32_demo_directional_feedback_user0.npy"
 data = np.load(file, allow_pickle=True)
 
-data, num_inside, num_outside, num_inside_while_playing, num_outside_while_playing, playingCompletionTime = data
-# data, num_inside, num_outside, num_inside_while_playing, num_outside_while_playing, playingCompletionTime, x_min, x_max, curve_y, curve_z = data
+# data, num_inside, num_outside, num_inside_while_playing, num_outside_while_playing, playingCompletionTime = data
+data, num_inside, num_outside, num_inside_while_playing, num_outside_while_playing, playingCompletionTime, curve = data
 N = np.shape(data)[0]
 print("Num Points", N)
 
-x_min, x_max = 0.25, 1.2
-curve_y = lambda x: 0.0
-# curve_y = lambda x: 0.025*(np.sin(5*x) + np.cos(6*x))
-curve_z = lambda x: 0.075*(np.sin(7*x) + np.cos(3*x))
-curve, curve_midpoints = initialize_curve(x_min, x_max, curve_y, curve_z, N=100)
+# x_min, x_max = 0.25, 1.2
+# curve_y = lambda x: 0.0
+# # curve_y = lambda x: 0.025*(np.sin(5*x) + np.cos(6*x))
+# curve_z = lambda x: 0.075*(np.sin(7*x) + np.cos(3*x))
+# curve, curve_midpoints = initialize_curve(x_min, x_max, curve_y, curve_z, N=100)
 
 # status, datetime.now(), num_loops, tags[0].pose_t, tags[0].pose_R, inside
-times = np.reshape([time for status, time, num_loop, pose_t, pose_R, inside in data], (N,))
-statuses = np.reshape([status for status, time, num_loop, pose_t, pose_R, inside in data], (N,))
-positions = np.reshape([pose_t for status, time, num_loop, pose_t, pose_R, inside in data], (N, 3))
-insides = np.reshape([inside for status, time, num_loop, pose_t, pose_R, inside in data], (N,))
+# times = np.reshape([time for status, time, num_loop, pose_t, pose_R, inside in data], (N,))
+# statuses = np.reshape([status for status, time, num_loop, pose_t, pose_R, inside in data], (N,))
+# positions = np.reshape([pose_t for status, time, num_loop, pose_t, pose_R, inside in data], (N, 3))
+# insides = np.reshape([inside for status, time, num_loop, pose_t, pose_R, inside in data], (N,))
+times = np.reshape([time for directional, status, time, num_loop, pose_t, pose_R, inside in data], (N,))
+statuses = np.reshape([status for directional, status, time, num_loop, pose_t, pose_R, inside in data], (N,))
+positions = np.reshape([pose_t for directional, status, time, num_loop, pose_t, pose_R, inside in data], (N, 3))
+insides = np.reshape([inside for directional, status, time, num_loop, pose_t, pose_R, inside in data], (N,))
 
 camera2World = np.array([[0, 0, 1],
                          [-1, 0, 0],
@@ -75,11 +79,13 @@ for i in range(N):
 
     deviations += [np.min(cdist(curve, np.array([pos])))]
 
+print("Num Points Per Time", N/(times[-1] - times[0]).total_seconds())
 print("Navigation Time", (end_time_navigate_to_origin - start_time_navigate_to_origin).total_seconds(), "s")
 print("Completion Time", (end_time_playing - start_time_playing).total_seconds(), "s")
 print("Percent Inside",
       100*num_inside_while_playing_total/(num_inside_while_playing_total + num_outside_while_playing_total), "%")
 print("Completion Distance", completion_distance, "m")
 print("Curve Length", curve_length, "m")
-print("Average Speed", np.mean(speeds), np.std(speeds), "m/s")
+# print("Average Speed", np.mean(speeds), np.std(speeds), "m/s")
+print("Average Speed", completion_distance/((end_time_playing - start_time_playing).total_seconds()))
 print("Mean Deviation", np.mean(deviations), np.std(deviations), "m")

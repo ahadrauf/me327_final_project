@@ -17,10 +17,39 @@ class GamePhase(Enum):
     Playing = 3
 
 
+class EightfoldSector(Enum):
+    Right = 0
+    TopRight = 1
+    Top = 2
+    TopLeft = 3
+    Left1 = 4
+    Left2 = -4
+    BottomLeft = -3
+    Bottom = -2
+    BottomRight = -1
+
+
+EightfoldSectorAngles = {EightfoldSector.Right: 0,
+                         EightfoldSector.TopRight: np.pi/4,
+                         EightfoldSector.Top: np.pi/2,
+                         EightfoldSector.TopLeft: 3*np.pi/4,
+                         EightfoldSector.Left1: np.pi,
+                         EightfoldSector.Left2: np.pi,
+                         EightfoldSector.BottomLeft: 5*np.pi/4,
+                         EightfoldSector.Bottom: 3*np.pi/2,
+                         EightfoldSector.BottomRight: 7*np.pi/4}
+
+
 def setup_plot() -> Tuple[plt.Figure, Tuple[Axes3D, plt.Axes, plt.Axes, plt.Axes]]:
     # plt.rcParams["figure.figsize"] = [10, 7.5]
     plt.rcParams["figure.figsize"] = [12.5, 7.5]
+
     fig = plt.figure()
+    # plt.axis('off')
+    # mngr = plt.get_current_fig_manager()
+    # # to put it into the upper left corner for example:
+    # mngr.window.setGeometry(200, 50, 1200, 800)
+    move_figure(fig, 285, 2)
     ax_3d = fig.add_subplot(121, projection='3d')
     ax_xy = fig.add_subplot(322)
     ax_yz = fig.add_subplot(324)
@@ -28,6 +57,15 @@ def setup_plot() -> Tuple[plt.Figure, Tuple[Axes3D, plt.Axes, plt.Axes, plt.Axes
 
     for ax in [ax_3d, ax_xy, ax_yz, ax_xz]:
         ax.grid(False)
+        ax.xaxis.set_ticks([])
+        ax.yaxis.set_ticks([])
+        if ax == ax_3d:
+            ax.zaxis.set_ticks([])
+        # ax.set_axis_off()
+        # ax.xaxis.set_visible(False)
+        # ax.yaxis.set_visible(False)
+        # if ax == ax_3d:
+        #     ax.zaxis.set_visible(False)
 
     # Setup 3D plot
     # ax_3d.set_title("3D Projection")
@@ -84,8 +122,8 @@ def initialize_plot_objects(fig: plt.Figure, axs: Tuple[Axes3D, plt.Axes, plt.Ax
     #            ax_yz.plot(curve[:, 1], curve[:, 2], lw=5)[0],
     #            ax_xz.plot(curve[:, 0], curve[:, 2], lw=5)[0]]
     splines = [ax.plot([], [], lw=5)[0] for ax in axs]
-    status_text = plt.gcf().text(0.02, 0.95, "", fontsize=14, color="black")
-    update_text = plt.gcf().text(0.02, 0.9, "", fontsize=14, color="black")
+    status_text = plt.gcf().text(0.02, 0.95, "", fontsize=14, color="black", va="center")
+    update_text = plt.gcf().text(0.24, 0.3, "", fontsize=14, color="black", ha="center", va="center")
     plt.tight_layout()
 
     fig.canvas.draw()
@@ -93,6 +131,37 @@ def initialize_plot_objects(fig: plt.Figure, axs: Tuple[Axes3D, plt.Axes, plt.Ax
     update_curve(splines, curve)
     plt.show(block=False)
     return rings, handles, splines, status_text, update_text, backgrounds
+
+
+def initialize_plot_objects_no_curve(fig: plt.Figure, axs: Tuple[Axes3D, plt.Axes, plt.Axes, plt.Axes]):
+    """
+     -> \
+        Tuple[Tuple[Line3DCollection, LineCollection, LineCollection, LineCollection],
+        Tuple[Line3D, plt.Line2D, plt.Line2D, plt.Line2D],
+        Tuple[Line3D, plt.Line2D, plt.Line2D, plt.Line2D],
+        plt.Text]
+    :param fig:
+    :param axs:
+    :return:
+    """
+    ax_3d, ax_xy, ax_yz, ax_xz = axs
+    rings = (Line3DCollection([], colors=[], linewidths=3), LineCollection([], colors=[], linewidths=3),
+             LineCollection([], colors=[], linewidths=3), LineCollection([], colors=[], linewidths=3))
+    for ax, ring in zip(axs, rings):
+        ax.add_collection(ring)
+    handles = [ax.plot([], [], lw=3)[0] for ax in axs]
+    # splines = [ax_3d.plot(curve[:, 0], curve[:, 1], curve[:, 2], lw=5)[0],
+    #            ax_xy.plot(curve[:, 0], curve[:, 1], lw=5)[0],
+    #            ax_yz.plot(curve[:, 1], curve[:, 2], lw=5)[0],
+    #            ax_xz.plot(curve[:, 0], curve[:, 2], lw=5)[0]]
+    status_text = plt.gcf().text(0.02, 0.95, "", fontsize=14, color="black")
+    update_text = plt.gcf().text(0.23, 0.3, "", fontsize=14, color="black", ha="center", va="center")
+    plt.tight_layout()
+
+    fig.canvas.draw()
+    backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axs]
+    plt.show(block=False)
+    return rings, handles, status_text, update_text, backgrounds
 
 
 def update_curve(splines: Tuple[Line3D, plt.Line2D, plt.Line2D, plt.Line2D], curve: np.ndarray) -> None:
@@ -151,7 +220,7 @@ def initialize_curve(x_min: float, x_max: float, curve_y: Callable, curve_z: Cal
 
 def update_ring(rings: Tuple[Line3DCollection, LineCollection, LineCollection, LineCollection], pos: np.ndarray,
                 R: np.ndarray, ring_pts: np.ndarray, curve_midpoints: np.ndarray, camera2World: np.ndarray,
-                ring_radius: float) -> bool:
+                ring_radius: float, red: tuple, yellow: tuple, green: tuple) -> Tuple[bool, np.ndarray]:
     """
     Updates the 3D visualization for the ring
     :param rings: 3D line collections used to draw the rings
@@ -170,7 +239,7 @@ def update_ring(rings: Tuple[Line3DCollection, LineCollection, LineCollection, L
     distances_to_center = cdist(pos_swapped, curve_midpoints)[0]
     distance_to_center_idx = np.argmin(distances_to_center)  # float
     distance_to_center = distances_to_center[distance_to_center_idx]
-    vector_to_center = pos_swapped - curve_midpoints[distance_to_center_idx, :]
+    vector_to_center = (pos_swapped - curve_midpoints[distance_to_center_idx, :])[0]
 
     # this technically doesn't map the distance to the plane of the ring, but it's sufficient for the relatively small
     # angles we expect users to tilt the handle too
@@ -182,23 +251,27 @@ def update_ring(rings: Tuple[Line3DCollection, LineCollection, LineCollection, L
     colors = np.zeros((len(distances_to_ring), 3))
     for i, d in enumerate(distances_to_ring):
         if d > ring_radius*2/3:
-            colors[i, :] = (0, 1, 0)
+            # colors[i, :] = (0, 1, 0)
+            colors[i, :] = green
         elif (d > 0 and inside) or (d > ring_radius*1/3 and not inside):
-            colors[i, :] = (1, 1, 0)
+            # colors[i, :] = (1, 1, 0)
+            colors[i, :] = yellow
         else:
-            colors[i, :] = (1, 0, 0)
+            # colors[i, :] = (1, 0, 0)
+            colors[i, :] = red
 
-    # Set ring points and colors
+            # Set ring points and colors
     segments = segment_pts(pts)
     for ring, segment in zip(rings, segments):
         ring.set_segments(segment)
         ring.set_colors(colors)
 
-    return inside
+    return inside, vector_to_center
 
 
 def update_handle(handles: Tuple[Line3D, plt.Line2D, plt.Line2D, plt.Line2D], pos: np.ndarray,
-                  R: np.ndarray, handle_pts: np.ndarray, camera2World: np.ndarray, inside: bool) -> None:
+                  R: np.ndarray, handle_pts: np.ndarray, camera2World: np.ndarray, inside: bool,
+                  red: tuple, green: tuple) -> None:
     """
     Updates the 3D visualization for the handle
     :param handles: 3D line collections used to draw the rings
@@ -210,7 +283,8 @@ def update_handle(handles: Tuple[Line3D, plt.Line2D, plt.Line2D, plt.Line2D], po
     :return: None
     """
     pts = np.matmul(camera2World, np.matmul(R, handle_pts) + pos)  # 3xN
-    color = (0, 1, 0) if inside else (1, 0, 0)
+    # color = (0, 1, 0) if inside else (1, 0, 0)
+    color = green if inside else red
 
     # Set ring points and colors
     handles[0].set_data_3d(pts[0, :], pts[1, :], pts[2, :])
@@ -219,3 +293,19 @@ def update_handle(handles: Tuple[Line3D, plt.Line2D, plt.Line2D, plt.Line2D], po
     handles[3].set_data(pts[0, :], pts[2, :])
     for handle in handles:
         handle.set_color(color)
+
+
+def move_figure(f, x, y):
+    """
+    Move figure's upper left corner to pixel (x, y)
+    Source: https://stackoverflow.com/questions/7449585/how-do-you-set-the-absolute-position-of-figure-windows-with-matplotlib
+    """
+    backend = matplotlib.get_backend()
+    if backend == 'TkAgg':
+        f.canvas.manager.window.wm_geometry("+%d+%d"%(x, y))
+    elif backend == 'WXAgg':
+        f.canvas.manager.window.SetPosition((x, y))
+    else:
+        # This works for QT and GTK
+        # You can also use window.setGeometry
+        f.canvas.manager.window.move(x, y)
