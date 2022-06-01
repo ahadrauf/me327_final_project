@@ -1,3 +1,8 @@
+data
+data/*
+__pycache__/
+figures/~$Edited Photos.pptx
+
 # Prerequisites
 *.d
 
