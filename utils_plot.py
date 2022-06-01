@@ -99,7 +99,8 @@ def setup_plot() -> Tuple[plt.Figure, Tuple[Axes3D, plt.Axes, plt.Axes, plt.Axes
     return fig, (ax_3d, ax_xy, ax_yz, ax_xz)
 
 
-def initialize_plot_objects(fig: plt.Figure, axs: Tuple[Axes3D, plt.Axes, plt.Axes, plt.Axes], curve: np.ndarray):
+def initialize_plot_objects(fig: plt.Figure, axs: Tuple[Axes3D, plt.Axes, plt.Axes, plt.Axes], curve: np.ndarray,
+                            show_plot=True):
     """
      -> \
         Tuple[Tuple[Line3DCollection, LineCollection, LineCollection, LineCollection],
@@ -129,7 +130,8 @@ def initialize_plot_objects(fig: plt.Figure, axs: Tuple[Axes3D, plt.Axes, plt.Ax
     fig.canvas.draw()
     backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axs]
     update_curve(splines, curve)
-    plt.show(block=False)
+    if show_plot:
+        plt.show(block=False)
     return rings, handles, splines, status_text, update_text, backgrounds
 
 

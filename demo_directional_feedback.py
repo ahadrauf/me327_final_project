@@ -7,9 +7,9 @@ from utils_arduino import *
 import winsound
 import time
 
-user_number = 0
+user_number = 27
 com_port = "COM10"  # None  # "COM10"  # COM port of Arduino
-radius_multiplier = 1.5  # >1 = larger virtual loop --> easier for user to thread through wire
+radius_multiplier = 1.5  # >1 =555 larger virtual loop --> easier for user to thread through wire
 tag_size = 0.069  # 2.5*INCH_TO_METERS  # 2.875*INCH_TO_METERS # 2.5*INCH_TO_METERS
 save_data = True
 running_cyclic_test = False
@@ -81,42 +81,42 @@ def write_pwm_by_quadrant(arduino: serial.Serial, vector_to_center: np.ndarray, 
     # print("Wrote to Arduino", sector, pwr, vector_to_center, inside)
     # scalar = 0.67
     if not running_cyclic_test:
-        if curve_num == 1:
-            if sector == EightfoldSector.Right.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, bottom_left_pin, pwr)
-            elif sector == EightfoldSector.TopRight.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, zero_pin, pwr)
-            elif sector == EightfoldSector.Top.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, bottom_right_pin, pwr)
-            elif sector == EightfoldSector.TopLeft.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, bottom_right_pin, zero_pin, pwr)
-            elif sector == EightfoldSector.Left1.value or sector == EightfoldSector.Left2.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, bottom_right_pin, pwr)
-            elif sector == EightfoldSector.BottomLeft.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, zero_pin, pwr)
-            elif sector == EightfoldSector.Bottom.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, top_right_pin, pwr)
-            elif sector == EightfoldSector.BottomRight.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, zero_pin, pwr)
-        else:
-            # When blindfolded, we found that vibrating away from the direction of desired motion was actually preferred
-            # (it felt like we were hitting a virtual wall that we should move away from)
-            if sector == EightfoldSector.Left1.value or sector == EightfoldSector.Left2.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, bottom_left_pin, pwr)
-            elif sector == EightfoldSector.BottomLeft.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, zero_pin, pwr)
-            elif sector == EightfoldSector.Bottom.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, bottom_right_pin, pwr)
-            elif sector == EightfoldSector.BottomRight.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, bottom_right_pin, zero_pin, pwr)
-            elif sector == EightfoldSector.Right.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, bottom_right_pin, pwr)
-            elif sector == EightfoldSector.TopRight.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, zero_pin, pwr)
-            elif sector == EightfoldSector.Top.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, top_right_pin, pwr)
-            elif sector == EightfoldSector.TopLeft.value:
-                write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, zero_pin, pwr)
+        # if curve_num == 1:
+        if sector == EightfoldSector.Right.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, bottom_left_pin, pwr)
+        elif sector == EightfoldSector.TopRight.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, zero_pin, pwr)
+        elif sector == EightfoldSector.Top.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, bottom_right_pin, pwr)
+        elif sector == EightfoldSector.TopLeft.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, bottom_right_pin, zero_pin, pwr)
+        elif sector == EightfoldSector.Left1.value or sector == EightfoldSector.Left2.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, bottom_right_pin, pwr)
+        elif sector == EightfoldSector.BottomLeft.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, zero_pin, pwr)
+        elif sector == EightfoldSector.Bottom.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, top_right_pin, pwr)
+        elif sector == EightfoldSector.BottomRight.value:
+            write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, zero_pin, pwr)
+        # else:
+        #     # When blindfolded, we found that vibrating away from the direction of desired motion was actually preferred
+        #     # (it felt like we were hitting a virtual wall that we should move away from)
+        #     if sector == EightfoldSector.Left1.value or sector == EightfoldSector.Left2.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, bottom_left_pin, pwr)
+        #     elif sector == EightfoldSector.BottomLeft.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, zero_pin, pwr)
+        #     elif sector == EightfoldSector.Bottom.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, bottom_left_pin, bottom_right_pin, pwr)
+        #     elif sector == EightfoldSector.BottomRight.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, bottom_right_pin, zero_pin, pwr)
+        #     elif sector == EightfoldSector.Right.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, bottom_right_pin, pwr)
+        #     elif sector == EightfoldSector.TopRight.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, top_right_pin, zero_pin, pwr)
+        #     elif sector == EightfoldSector.Top.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, top_right_pin, pwr)
+        #     elif sector == EightfoldSector.TopLeft.value:
+        #         write_four_numbers(arduino, DriveMode.Directional.value, top_left_pin, zero_pin, pwr)
 
 
 if __name__ == '__main__':
@@ -283,6 +283,8 @@ if __name__ == '__main__':
             curvesUpdated = True
             winsound.Beep(440, 250)
             time.sleep(0.25)
+            winsound.Beep(600, 500)
+            time.sleep(0.5)
         elif key_input == ord('2'):
             status = GamePhase.NavigatingToOrigin
             update_curve(splines, curves[curve_num - 1])
